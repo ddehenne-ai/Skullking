@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🏴‍☠️ Skull King</title>
+<style>
+* { box-sizing: border-box; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f2f2f7;
+    margin: 0;
+    padding-bottom: 20px;
+}
+
+.header {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 10px 15px;
+    text-align: center;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    z-index: 10;
+}
+
+.header h2 { margin: 0 0 8px 0; font-size: 20px; }
+
+.p0 { color: #007aff; }
+.p1 { color: #34c759; }
+.p2 { color: #ff9500; }
+.p3 { color: #af52de; }
+.p4 { color: #ff2d55; }
+.p5 { color: #5ac8fa; }
+
+#setup select {
+    font-size: 15px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    margin-bottom: 6px;
+}
+
+#playerInputs input {
+    width: 100%;
+    padding: 10px;
+    margin: 4px 0;
+    font-size: 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.card {
+    background: white;
+    margin: 10px;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.card h3 { margin: 0 0 10px 0; }
+
+.active { border: 3px solid #ff3b30; }
+
+label.lbl {
+    font-size: 13px;
+    color: #666;
+    display: block;
+    margin: 8px 0 2px;
+}
+
+input[type="number"] {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    background: #f9f9f9;
+}
+
+input[type="number"]:focus {
+    outline: none;
+    border-color: #007aff;
+    background: white;
+}
+
+.score-display {
+    font-size: 17px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+button {
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #007aff;
+    color: white;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+button:active { opacity: 0.75; }
+
+.btn-full { width: 100%; margin-top: 6px; }
+.btn-grey  { background: #8e8e93; }
+.btn-green { background: #34c759; }
+
+.btn-row {
+    display: flex;
+    gap: 8px;
+    margin: 0 10px;
+}
+.btn-row button { flex: 1; }
+
+.totalBar {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 4px;
+    font-weight: bold;
+    font-size: 14px;
+    margin-top: 6px;
+}
+
+#currentPlayer { margin-top: 5px; font-size: 14px; }
+
+.overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: white;
+    display: none;
+    z-index: 100;
+    overflow-y: auto;
+}
+
+.overlay-hdr {
+    position: sticky;
+    top: 0;
+    background: white;
+    padding: 12px 15px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.overlay-hdr h3 { margin: 0; font-size: 18px; }
+.overlay-body { padding: 15px; }
+
+.tour-hdr {
+    font-weight: bold;
+    font-size: 15px;
+    margin: 14px 0 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #eee;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <h2>🏴‍☠️ Skull King</h2>
+
+    <div id="setup">
+        <select id="nbPlayers" onchange="updatePlayerInputs()">
+            <option value="2">2 joueurs</option>
+            <option value="3">3 joueurs</option>
+            <option value="4">4 joueurs</option>
+            <option value="5">5 joueurs</option>
+            <option value="6">6 joueurs</option>
+        </select>
+        <div id="playerInputs"></div>
+        <button class="btn-full" onclick="start()">▶️ Démarrer</button>
+    </div>
+
+    <div id="totals" class="totalBar"></div>
+    <div id="currentPlayer"></div>
+</div>
+
+<div id="app"></div>
+<div id="overlay" class="overlay"></div>
+
+<script>
+let players = 2;
+let names = [];
+let currentTour = 1;
+let data = [];
+const maxTours = 10;
+
+function updatePlayerInputs() {
+    let nb = parseInt(document.getElementById('nbPlayers').value);
+    let html = "";
+    for (let i = 0; i < nb; i++) {
+        let prev = names[i] || "";
+        html += `<input type="text" id="name${i}" placeholder="Joueur ${i+1}" value="${prev}">`;
+    }
+    document.getElementById('playerInputs').innerHTML = html;
+}
+
+updatePlayerInputs();
+
+function start() {
+    players = parseInt(document.getElementById('nbPlayers').value);
+    currentTour = 1;
+    names = [];
+    for (let i = 0; i < players; i++) {
+        let el = document.getElementById("name" + i);
+        names.push(el && el.value.trim() ? el.value.trim() : "Joueur " + (i+1));
+    }
+    data = Array.from({length: maxTours}, () => ({
+        players: Array.from({length: players}, () => ({
+            mise: "", res: "", bonus: "", score: 0
+        }))
+    }));
+    document.getElementById('setup').style.display = 'none';
+    render();
+}
+
+function render() {
+    updateTotals();
+
+    let idx = (currentTour - 1) % players;
+    document.getElementById('currentPlayer').innerHTML =
+        `Tour ${currentTour}/${maxTours} — <b class="p${idx}">${names[idx]} commence</b>`;
+
+    let html = "";
+    for (let i = 0; i < players; i++) {
+        let p = data[currentTour-1].players[i];
+        let cls = (i === idx) ? "active" : "";
+        html += `
+        <div class="card ${cls}">
+            <h3 class="p${i}">🧑 ${names[i]}</h3>
+            <label class="lbl">Mise</label>
+            <input type="number" inputmode="numeric" value="${p.mise}"
+                oninput="update(${i},'mise',this.value)">
+            <label class="lbl">Résultat</label>
+            <input type="number" inputmode="numeric" value="${p.res}"
+                oninput="update(${i},'res',this.value)">
+            <label class="lbl">Bonus</label>
+            <input type="number" inputmode="numeric" value="${p.bonus}"
+                oninput="update(${i},'bonus',this.value)">
+            <div class="score-display p${i}">Score ce tour : <span id="sc_${i}">${p.score}</span></div>
+        </div>`;
+    }
+
+    html += `
+    <div class="btn-row">
+        <button class="btn-grey" onclick="prev()">⬅️ Préc.</button>
+        <button onclick="next()">Suiv. ➡️</button>
+    </div>
+    <div style="margin:8px 10px 0">
+        <button class="btn-full btn-green" onclick="showRecap()">📊 Récapitulatif</button>
+    </div>
+    <div style="margin:8px 10px 0">
+        <button class="btn-full btn-grey" onclick="resetGame()">🔄 Nouvelle partie</button>
+    </div>`;
+
+    document.getElementById('app').innerHTML = html;
+}
+
+function update(i, f, v) {
+    data[currentTour-1].players[i][f] = v;
+    recalc(currentTour-1);
+    let el = document.getElementById(`sc_${i}`);
+    if (el) el.textContent = data[currentTour-1].players[i].score;
+    updateTotals();
+}
+
+function recalc(t) {
+    data[t].players.forEach(p => {
+        if (p.mise === "" && p.res === "" && p.bonus === "") { p.score = 0; return; }
+        let mise  = +p.mise  || 0;
+        let res   = +p.res   || 0;
+        let bonus = +p.bonus || 0;
+        let diff  = mise - res;
+        if (diff === 0)            p.score = 10 * (t+1) + bonus;
+        else if (Math.abs(diff) === 1) p.score = 5 * (t+1) + bonus;
+        else                       p.score = bonus;
+    });
+}
+
+function updateTotals() {
+    let totals = new Array(players).fill(0);
+    for (let t = 0; t < maxTours; t++) {
+        recalc(t);
+        data[t].players.forEach((p, i) => totals[i] += p.score);
+    }
+    document.getElementById('totals').innerHTML =
+        totals.map((t, i) => `<span class="p${i}">${names[i]}: <b>${t}</b></span>`).join('');
+}
+
+function next() { if (currentTour < maxTours) { currentTour++; render(); } }
+function prev() { if (currentTour > 1)         { currentTour--; render(); } }
+
+function resetGame() {
+    if (!confirm("Recommencer une nouvelle partie ?")) return;
+    document.getElementById('setup').style.display = '';
+    document.getElementById('app').innerHTML = '';
+    document.getElementById('totals').innerHTML = '';
+    document.getElementById('currentPlayer').innerHTML = '';
+    updatePlayerInputs();
+}
+
+function showRecap() {
+    let totals = new Array(players).fill(0);
+    let html = `
+    <div class="overlay-hdr">
+        <button onclick="closeRecap()">⬅️</button>
+        <h3>📊 Récapitulatif</h3>
+    </div>
+    <div class="overlay-body">`;
+
+    for (let t = 0; t < maxTours; t++) {
+        recalc(t);
+        html += `<div class="tour-hdr">Tour ${t+1}</div>`;
+        data[t].players.forEach((p, i) => {
+            totals[i] += p.score;
+            html += `<div class="p${i}" style="margin:3px 0">
+                ${names[i]}: ${p.mise||0} misé / ${p.res||0} fait / +${p.bonus||0} bonus
+                = <b>${p.score} pts</b>
+            </div>`;
+        });
+    }
+
+    html += `<h2 style="margin-top:20px">🏆 Classement final</h2>`;
+    let ranking = totals.map((t,i) => ({i, t})).sort((a,b) => b.t - a.t);
+    let medals = ["🥇","🥈","🥉"];
+    ranking.forEach(({i,t}, rank) => {
+        html += `<div class="p${i}" style="font-size:18px;margin:6px 0">
+            ${medals[rank]||"  "} ${names[i]}: <b>${t} pts</b>
+        </div>`;
+    });
+
+    html += `</div>`;
+    let ov = document.getElementById('overlay');
+    ov.innerHTML = html;
+    ov.style.display = 'block';
+    ov.scrollTop = 0;
+}
+
+function closeRecap() {
+    document.getElementById('overlay').style.display = 'none';
+}
+</script>
+</body>
+</html>
