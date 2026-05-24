@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Skull King</title>
+
+<style>
+body { font-family:-apple-system; background:#f2f2f7; margin:0; }
+
+.header {
+    position:sticky;
+    top:0;
+    background:white;
+    padding:10px;
+    text-align:center;
+}
+
+.p0 { color:#007aff; }
+.p1 { color:#34c759; }
+.p2 { color:#ff9500; }
+.p3 { color:#af52de; }
+
+.card {
+    background:white;
+    margin:10px;
+    padding:15px;
+    border-radius:12px;
+}
+
+.active { border:3px solid #ff3b30; }
+
+input {
+    width:100%;
+    padding:10px;
+    margin:4px 0;
+    font-size:16px;
+}
+
+button {
+    width:100%;
+    padding:12px;
+    margin-top:5px;
+    border:none;
+    border-radius:10px;
+    background:#007aff;
+    color:white;
+}
+
+.totalBar {
+    display:flex;
+    justify-content:space-around;
+    font-weight:bold;
+}
+
+/* OVERLAY */
+.overlay {
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:white;
+    display:none;
+    z-index:999;
+}
+
+.overlay-header {
+    position:absolute;
+    top:0;
+    width:100%;
+    padding:10px;
+    background:white;
+}
+
+.overlay-content {
+    position:absolute;
+    top:70px;
+    bottom:0;
+    width:100%;
+    overflow-y:auto;
+    padding:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+
+<div id="setup">
+    <h2>🏴‍☠️ Skull King</h2>
+
+    <select id="nbPlayers" onchange="initNames()">
+        <option value="2">2 joueurs</option>
+        <option value="3">3 joueurs</option>
+        <option value="4">4 joueurs</option>
+    </select>
+
+    <div id="namesInput"></div>
+
+    <button onclick="start()">▶️ Démarrer</button>
+</div>
+
+<div id="totals" class="totalBar"></div>
+<div id="currentPlayer"></div>
+
+</div>
+
+<div id="app"></div>
+<div id="overlay" class="overlay"></div>
+
+<script>
+
+let players = 2;
+let names = [];
+let currentTour = 1;
+let maxTours = 10;
+let data = [];
+
+/* INIT NOMS */
+function initNames(){
+    let nb = parseInt(nbPlayers.value);
+    let html="";
+    for(let i=0;i<nb;i++){
+        html+= `<input id="name${i}" placeholder="Joueur ${i+1}">`;
+    }
+    namesInput.innerHTML=html;
+}
+initNames();
+
+/* START */
+function start(){
+    players=parseInt(nbPlayers.value);
+    currentTour=1;
+
+    names=[];
+    for(let i=0;i<players;i++){
+        let v=document.getElementById("name"+i).value;
+        names.push(v||"Joueur "+(i+1));
+    }
+
+    data = Array.from({length:maxTours}, () => ({
+        players: Array.from({length:players}, () => ({
+            mise:"",
+            res:"",
+            bonusPlus:"",
+            bonusMoins:"",
+            score:0
+        }))
+    }));
+
+    document.getElementById("setup").style.display="none";
+    render();
+}
+
+/* RENDER */
+function render(){
+
+    updateTotals();
+
+    let current = (currentTour-1)%players;
+
+    currentPlayer.innerHTML =
+    `👉 Tour ${currentTour}: <b class="p${current}">${names[current]}</b> commence`;
+
+    let html="";
+
+    for(let i=0;i<players;i++){
+
+        let p = data[currentTour-1].players[i];
+        let active = (i===current)?"active":"";
+
+        html+=`
+        <div class="card ${active}">
+            <h3 class="p${i}">${names[i]}</h3>
+
+            Mise
+            <input type="number" value="${p.mise}"
+            oninput="update(${i},'mise',this.value)">
+
+            Résultat
+            <input type="number" value="${p.res}"
+            oninput="update(${i},'res',this.value)">
+
+            Bonus +
+            <input type="number" value="${p.bonusPlus}"
+            oninput="update(${i},'bonusPlus',this.value)">
+
+            Bonus -
+            <input type="number" value="${p.bonusMoins}"
+            oninput="update(${i},'bonusMoins',this.value)">
+
+            Score : <span id="score_${i}">${p.score}</span>
+        </div>
+        `;
+    }
+
+    html+=`
+    <button onclick="prev()">⬅️</button>
+    <button onclick="next()">➡️</button>
+    <button onclick="recap()">📊 Récap</button>
+    `;
+
+    app.innerHTML=html;
+}
+
+/* UPDATE (sans perdre focus) */
+function update(i,f,v){
+    data[currentTour-1].players[i][f]=v;
+    calc(currentTour-1);
+    updateTotals();
+    updateScoresDisplay();
+}
+
+function updateScoresDisplay(){
+    data[currentTour-1].players.forEach((p,i)=>{
+        let el=document.getElementById("score_"+i);
+        if(el) el.textContent=p.score;
+    });
+}
+
+/* CALCUL */
+function calc(t){
+
+    data[t].players.forEach(p=>{
+
+        let bonus = (+p.bonusPlus||0) - (+p.bonusMoins||0);
+
+        let mise=+p.mise||0;
+        let res=+p.res||0;
+
+        if(p.mise==="" && p.res==="" && bonus===0){
+            p.score=0;
+            return;
+        }
+
+        let diff=mise-res;
+
+        if(diff===0) p.score=10*(t+1)+bonus;
+        else if(Math.abs(diff)===1) p.score=5*(t+1)+bonus;
+        else p.score=bonus;
+    });
+}
+
+/* TOTAL */
+function updateTotals(){
+
+    let totals=new Array(players).fill(0);
+
+    data.forEach((tour,t)=>{
+        calc(t);
+        tour.players.forEach((p,i)=>totals[i]+=p.score);
+    });
+
+    let html="";
+    totals.forEach((t,i)=>{
+        html+=`<span class="p${i}">${names[i]}: ${t}</span>`;
+    });
+
+    totalsEl = document.getElementById("totals");
+    totalsEl.innerHTML=html;
+}
+
+/* NAV */
+function next(){ if(currentTour<maxTours) currentTour++; render();}
+function prev(){ if(currentTour>1) currentTour--; render();}
+
+/* RECAP + CLASSEMENT */
+function recap(){
+
+    let totals=new Array(players).fill(0);
+
+    let html=`
+    <div class="overlay-header">
+        <button onclick="closeRecap()">⬅️ Retour</button>
+    </div>
+    <div class="overlay-content">
+    `;
+
+    data.forEach((tour,t)=>{
+        calc(t);
+
+        html+=`<h3>Tour ${t+1}</h3>`;
+
+        tour.players.forEach((p,i)=>{
+            totals[i]+=p.score;
+
+            let bonus=(+p.bonusPlus||0)-(+p.bonusMoins||0);
+
+            html+=`
+            <div class="p${i}">
+            ${names[i]}: ${p.mise||0}/${p.res||0} (b:${bonus})
+            = ${p.score}
+            </div>`;
+        });
+    });
+
+    /* CLASSEMENT */
+    html+=`<h2>🏆 Classement</h2>`;
+
+    let classement = names.map((name,i)=>({
+        name,
+        score: totals[i],
+        index: i
+    })).sort((a,b)=>b.score-a.score);
+
+    classement.forEach((p,i)=>{
+        let medal=["🥇","🥈","🥉","4️⃣"][i]||`${i+1}️⃣`;
+
+        html+=`
+        
+<div class="p${p.index}" style="padding:4px 0;">
+    <b>${medal} ${p.name} : ${p.score} pts</b>
+</div>
+
+        `;
+    });
+
+    /* BOUTON NOUVELLE PARTIE */
+    html+=`
+    <div style="margin-top:15px;">
+        <button onclick="newGame()">🔄 Nouvelle partie</button>
+    </div>
+    `;
+
+    html+="</div>";
+
+    overlay.innerHTML=html;
+    overlay.style.display="block";
+
+    document.querySelector(".overlay-content").scrollTop=0;
+}
+
+/* CLOSE */
+function closeRecap(){
+    overlay.style.display="none";
+}
+
+/* NOUVELLE PARTIE */
+function newGame(){
+    overlay.style.display="none";
+    document.getElementById("setup").style.display="block";
+    app.innerHTML="";
+    currentPlayer.innerHTML="";
+    document.getElementById("totals").innerHTML="";
+}
+</script>
+
+</body>
+</html>
